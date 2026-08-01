@@ -20,6 +20,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Repeat,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 /* ============================================================
@@ -1024,9 +1026,11 @@ function MovimientoRow({ movimiento, onDelete, onEdit }) {
 function FinanzasScreen({ movimientos, crearMovimiento, actualizarMovimiento, eliminarMovimiento, vaciarMovimientos, categorias, metaReserva }) {
   const [mostrandoForm, setMostrandoForm] = useState(false);
   const [movimientoEditando, setMovimientoEditando] = useState(null);
+  const [indiceMes, setIndiceMes] = useState(0);
   const balances = computeBalances(movimientos);
   const gruposPorMes = agruparPorMes(movimientos);
-  const mesActual = gruposPorMes[0]; // el más reciente, si existe
+  const indiceMesSeguro = Math.min(indiceMes, Math.max(0, gruposPorMes.length - 1));
+  const mesMostrado = gruposPorMes[indiceMesSeguro];
 
   const totalIngresos = movimientos.filter((m) => m.tipo === "ingreso").reduce((acc, m) => acc + m.monto, 0);
   const metaAcumulada = totalIngresos * (metaReserva / 100);
@@ -1105,13 +1109,31 @@ function FinanzasScreen({ movimientos, crearMovimiento, actualizarMovimiento, el
           )}
         </div>
 
-        {mesActual && (
+        {mesMostrado && (
           <>
-            <div className="section-title">{formatMes(mesActual.clave)} (mes más reciente)</div>
+            <div className="section-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <button
+                onClick={() => setIndiceMes(indiceMesSeguro + 1)}
+                disabled={indiceMesSeguro >= gruposPorMes.length - 1}
+                aria-label="Mes anterior"
+                style={{ background: "none", border: "none", cursor: indiceMesSeguro >= gruposPorMes.length - 1 ? "default" : "pointer", opacity: indiceMesSeguro >= gruposPorMes.length - 1 ? 0.3 : 1, color: "var(--text)", display: "flex", alignItems: "center", padding: 4 }}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span>{formatMes(mesMostrado.clave)}</span>
+              <button
+                onClick={() => setIndiceMes(indiceMesSeguro - 1)}
+                disabled={indiceMesSeguro <= 0}
+                aria-label="Mes siguiente"
+                style={{ background: "none", border: "none", cursor: indiceMesSeguro <= 0 ? "default" : "pointer", opacity: indiceMesSeguro <= 0 ? 0.3 : 1, color: "var(--text)", display: "flex", alignItems: "center", padding: 4 }}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
             <div className="accounts-row">
-              <div className="account-card"><div className="label">Ingresos</div><div className="value" style={{ color: "var(--success)" }}>{formatMonto(mesActual.ingresos)}</div></div>
-              <div className="account-card"><div className="label">Gastos</div><div className="value" style={{ color: "var(--danger)" }}>{formatMonto(mesActual.gastos)}</div></div>
-              <div className="account-card"><div className="label">Balance</div><div className="value">{formatMonto(mesActual.ingresos - mesActual.gastos)}</div></div>
+              <div className="account-card"><div className="label">Ingresos</div><div className="value" style={{ color: "var(--success)" }}>{formatMonto(mesMostrado.ingresos)}</div></div>
+              <div className="account-card"><div className="label">Gastos</div><div className="value" style={{ color: "var(--danger)" }}>{formatMonto(mesMostrado.gastos)}</div></div>
+              <div className="account-card"><div className="label">Balance</div><div className="value">{formatMonto(mesMostrado.ingresos - mesMostrado.gastos)}</div></div>
             </div>
           </>
         )}
