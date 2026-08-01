@@ -905,8 +905,12 @@ function cuentaAfectada(data) {
 }
 const NOMBRE_CUENTA = { negocio: "Negocio", personal: "Personal", reserva: "Reserva" };
 
-function MovimientoForm({ categorias, balances, onSave, onCancel }) {
-  const [data, setData] = useState({ tipo: "ingreso", cuenta: "negocio", monto: "", categoria: "", fecha: "", descripcion: "" });
+function MovimientoForm({ categorias, balances, onSave, onCancel, movimientoEditando }) {
+  const [data, setData] = useState(
+    movimientoEditando
+      ? { tipo: movimientoEditando.tipo, cuenta: movimientoEditando.cuenta || "negocio", monto: String(movimientoEditando.monto), categoria: movimientoEditando.categoria || "", fecha: movimientoEditando.fecha, descripcion: movimientoEditando.descripcion || "" }
+      : { tipo: "ingreso", cuenta: "negocio", monto: "", categoria: "", fecha: "", descripcion: "" }
+  );
   const [errores, setErrores] = useState({});
   function set(campo, valor) { setData((prev) => ({ ...prev, [campo]: valor })); }
   function handleSubmit(e) {
@@ -924,7 +928,7 @@ function MovimientoForm({ categorias, balances, onSave, onCancel }) {
 
   return (
     <>
-      <TopBar eyebrow="Finanzas" title="Nuevo movimiento" onBack={onCancel} />
+      <TopBar eyebrow="Finanzas" title={movimientoEditando ? "Editar movimiento" : "Nuevo movimiento"} onBack={onCancel} />
       <div className="taller-content">
         <form onSubmit={handleSubmit} noValidate>
           <FormField label="Tipo" required error={errores.tipo}>
@@ -967,7 +971,7 @@ function MovimientoForm({ categorias, balances, onSave, onCancel }) {
           </FormField>
           <div className="form-actions">
             <button type="button" className="cancel-btn" onClick={onCancel}>Cancelar</button>
-            <button type="submit" className="save-btn">Registrar</button>
+            <button type="submit" className="save-btn">{movimientoEditando ? "Guardar cambios" : "Registrar"}</button>
           </div>
         </form>
       </div>
@@ -975,7 +979,7 @@ function MovimientoForm({ categorias, balances, onSave, onCancel }) {
   );
 }
 
-function MovimientoRow({ movimiento, onDelete }) {
+function MovimientoRow({ movimiento, onDelete, onEdit }) {
   const meta = TIPO_MOVIMIENTO_META[movimiento.tipo];
   const Icon = meta.icon;
   const esNegativoParaNegocio = movimiento.tipo !== "ingreso";
@@ -999,9 +1003,16 @@ function MovimientoRow({ movimiento, onDelete }) {
       <div className="card-meta-row">
         <div className="meta-item"><Calendar size={12} /> {formatFecha(movimiento.fecha)}</div>
         <button
+          onClick={() => onEdit(movimiento)}
+          aria-label="Editar movimiento"
+          style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center" }}
+        >
+          <Pencil size={14} />
+        </button>
+        <button
           onClick={handleDelete}
           aria-label="Eliminar movimiento"
-          style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--danger)", cursor: "pointer", display: "flex", alignItems: "center" }}
+          style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", display: "flex", alignItems: "center" }}
         >
           <Trash2 size={14} />
         </button>
@@ -1010,8 +1021,9 @@ function MovimientoRow({ movimiento, onDelete }) {
   );
 }
 
-function FinanzasScreen({ movimientos, crearMovimiento, eliminarMovimiento, vaciarMovimientos, categorias, metaReserva }) {
+function FinanzasScreen({ movimientos, crearMovimiento, actualizarMovimiento, eliminarMovimiento, vaciarMovimientos, categorias, metaReserva }) {
   const [mostrandoForm, setMostrandoForm] = useState(false);
+  const [movimientoEditando, setMovimientoEditando] = useState(null);
   const balances = computeBalances(movimientos);
   const gruposPorMes = agruparPorMes(movimientos);
   const mesActual = gruposPorMes[0]; // el más reciente, si existe
@@ -1021,18 +1033,33 @@ function FinanzasScreen({ movimientos, crearMovimiento, eliminarMovimiento, vaci
   const faltanteReserva = Math.max(0, Math.round(metaAcumulada - balances.reserva));
   const progresoReserva = metaAcumulada > 0 ? Math.min(100, Math.round((balances.reserva / metaAcumulada) * 100)) : 100;
 
+  function cerrarForm() {
+    setMostrandoForm(false);
+    setMovimientoEditando(null);
+  }
+
   if (mostrandoForm) {
     return (
       <MovimientoForm
         categorias={categorias}
         balances={balances}
-        onCancel={() => setMostrandoForm(false)}
+        movimientoEditando={movimientoEditando}
+        onCancel={cerrarForm}
         onSave={async (data) => {
-          await crearMovimiento(data);
-          setMostrandoForm(false);
+          if (movimientoEditando) {
+            await actualizarMovimiento(movimientoEditando.id, data);
+          } else {
+            await crearMovimiento(data);
+          }
+          cerrarForm();
         }}
       />
     );
+  }
+
+  function handleEditMovimiento(movimiento) {
+    setMovimientoEditando(movimiento);
+    setMostrandoForm(true);
   }
 
   async function handleDeleteMovimiento(id) {
@@ -1101,7 +1128,7 @@ function FinanzasScreen({ movimientos, crearMovimiento, eliminarMovimiento, vaci
                 <span style={{ color: "var(--danger)" }}>-{formatMonto(grupo.gastos)}</span>
               </span>
             </div>
-            {grupo.movimientos.map((m) => <MovimientoRow key={m.id} movimiento={m} onDelete={handleDeleteMovimiento} />)}
+            {grupo.movimientos.map((m) => <MovimientoRow key={m.id} movimiento={m} onDelete={handleDeleteMovimiento} onEdit={handleEditMovimiento} />)}
           </div>
         ))}
         {movimientos.length > 0 && (
@@ -1273,6 +1300,7 @@ export default function TallerApp() {
       <FinanzasScreen
         movimientos={movimientosTabla.data}
         crearMovimiento={movimientosTabla.crear}
+        actualizarMovimiento={movimientosTabla.actualizar}
         eliminarMovimiento={movimientosTabla.eliminar}
         vaciarMovimientos={movimientosTabla.vaciar}
         categorias={categoriasTabla.data}
