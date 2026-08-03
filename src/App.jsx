@@ -154,7 +154,7 @@ const THEME = `
   }
 
   .fab {
-    position: absolute; right: 18px; bottom: 86px; width: 52px; height: 52px; border-radius: 16px;
+    position: fixed; right: max(18px, calc((100vw - 480px) / 2 + 18px)); bottom: 86px; width: 52px; height: 52px; border-radius: 16px;
     background: var(--accent); color: #1c1815; border: none;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 8px 20px rgba(201, 125, 63, 0.35); cursor: pointer; z-index: 5;
