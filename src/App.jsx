@@ -210,7 +210,7 @@ const THEME = `
 
   /* ---- Bottom nav ---- */
   .taller-bottomnav {
-    position: absolute; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
+    position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
     display: flex; border-top: 1px solid var(--border); background: rgba(28, 24, 21, 0.96);
     backdrop-filter: blur(6px); padding: 8px 6px calc(10px + env(safe-area-inset-bottom, 0px)) 6px; z-index: 4;
   }
