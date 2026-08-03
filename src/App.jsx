@@ -110,7 +110,7 @@ const THEME = `
 
   .empty-state {
     margin-top: 18px; border: 1px solid var(--border); border-radius: 14px;
-    padding: 32px 22px; background: var(--surface);  
+    padding: 32px 22px; background: var(--surface);
   }
   .empty-state .idx { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.1em; }
   .empty-state .icon-wrap {
@@ -154,7 +154,7 @@ const THEME = `
   }
 
   .fab {
-    position: fixed; right: max(18px, calc((100vw - 480px) / 2 + 70px)); bottom: 86px; width: 52px; height: 52px; border-radius: 16px;
+    position: fixed; right: max(18px, calc((100vw - 480px) / 2 + 18px)); bottom: 86px; width: 52px; height: 52px; border-radius: 16px;
     background: var(--accent); color: #1c1815; border: none;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 8px 20px rgba(201, 125, 63, 0.35); cursor: pointer; z-index: 5;
