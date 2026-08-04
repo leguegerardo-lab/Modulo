@@ -994,44 +994,19 @@ function MovimientoForm({ categorias, balances, onSave, onCancel }) {
   );
 }
 
-function GraficoMensual({ grupos }) {
-  const ultimos = [...grupos].slice(0, 6).reverse();
-  if (ultimos.length === 0) return null;
-  const maxValor = Math.max(1, ...ultimos.flatMap((g) => [g.ingresos, g.gastos]));
-  return (
-    <div className="simple-card" style={{ cursor: "default" }}>
-      <div style={{ display: "flex", gap: 14, marginBottom: 12, fontSize: 11, color: "var(--text-muted)" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--success)", display: "inline-block" }} /> Ingresos</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--danger)", display: "inline-block" }} /> Gastos</span>
-      </div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
-        {ultimos.map((g) => (
-          <div key={g.clave} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 90 }}>
-              <div style={{ width: 10, borderRadius: "3px 3px 0 0", background: "var(--success)", height: `${Math.max(2, (g.ingresos / maxValor) * 90)}px` }} />
-              <div style={{ width: 10, borderRadius: "3px 3px 0 0", background: "var(--danger)", height: `${Math.max(2, (g.gastos / maxValor) * 90)}px` }} />
-            </div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "var(--text-muted)" }}>{formatMes(g.clave).slice(0, 3)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function TopCategoriasGasto({ movimientos }) {
-  const top = topCategoriasGasto(movimientos, 5);
+  const top = topCategoriasGasto(movimientos, 4);
   if (top.length === 0) return null;
   const maxValor = top[0][1];
   return (
-    <div className="simple-card" style={{ cursor: "default" }}>
+    <div className="simple-card" style={{ cursor: "default", padding: "12px 14px" }}>
       {top.map(([nombre, monto]) => (
-        <div key={nombre} style={{ marginBottom: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 5 }}>
+        <div key={nombre} style={{ marginBottom: 9 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 4 }}>
             <span>{nombre}</span>
             <span style={{ fontFamily: "var(--font-mono)" }}>{formatMonto(monto)}</span>
           </div>
-          <div style={{ height: 6, background: "var(--border)", borderRadius: 6, overflow: "hidden" }}>
+          <div style={{ height: 5, background: "var(--border)", borderRadius: 5, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${(monto / maxValor) * 100}%`, background: "var(--danger)" }} />
           </div>
         </div>
@@ -1154,14 +1129,11 @@ function FinanzasScreen({ movimientos, crearMovimiento, eliminarMovimiento, vaci
           </>
         )}
 
-        <div className="section-title">Ingresos vs. gastos (últimos meses)</div>
-        <GraficoMensual grupos={gruposPorMes} />
-
-        <div className="section-title">En qué gastás más</div>
-        {topCategoriasGasto(movimientos).length === 0 ? (
-          <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Todavía no hay gastos registrados.</p>
+        <div className="section-title">En qué gastás más{mesActual ? ` (${formatMes(mesActual.clave)})` : ""}</div>
+        {!mesActual || topCategoriasGasto(mesActual.movimientos).length === 0 ? (
+          <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Todavía no hay gastos este mes.</p>
         ) : (
-          <TopCategoriasGasto movimientos={movimientos} />
+          <TopCategoriasGasto movimientos={mesActual.movimientos} />
         )}
 
         <div className="section-title">Movimientos</div>
