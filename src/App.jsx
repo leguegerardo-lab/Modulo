@@ -20,8 +20,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Repeat,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 
 /* ============================================================
@@ -154,7 +152,7 @@ const THEME = `
   }
 
   .fab {
-    position: fixed; right: max(18px, calc((100vw - 480px) / 2 + 18px)); bottom: 86px; width: 52px; height: 52px; border-radius: 16px;
+    position: absolute; right: 18px; bottom: 86px; width: 52px; height: 52px; border-radius: 16px;
     background: var(--accent); color: #1c1815; border: none;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 8px 20px rgba(201, 125, 63, 0.35); cursor: pointer; z-index: 5;
@@ -210,7 +208,7 @@ const THEME = `
 
   /* ---- Bottom nav ---- */
   .taller-bottomnav {
-    position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
+    position: absolute; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
     display: flex; border-top: 1px solid var(--border); background: rgba(28, 24, 21, 0.96);
     backdrop-filter: blur(6px); padding: 8px 6px calc(10px + env(safe-area-inset-bottom, 0px)) 6px; z-index: 4;
   }
@@ -362,6 +360,15 @@ function agruparPorMes(movimientos) {
       movimientos: datos.movimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)),
     }));
 }
+function topCategoriasGasto(movimientos, limite = 5) {
+  const totales = {};
+  for (const m of movimientos) {
+    if (m.tipo !== "gasto") continue;
+    const cat = m.categoria || "Sin categoría";
+    totales[cat] = (totales[cat] || 0) + m.monto;
+  }
+  return Object.entries(totales).sort((a, b) => b[1] - a[1]).slice(0, limite);
+}
 
 /* ---------------- Componentes compartidos ---------------- */
 function TickDivider({ label }) {
@@ -461,16 +468,26 @@ function TrabajoCard({ trabajo, clientes, movimientos, onOpen }) {
 }
 
 function TrabajosList({ trabajos, clientes, movimientos, onOpen, onNew }) {
-  const atrasados = trabajos.filter(estaAtrasado).length;
+  const activos = trabajos.filter((t) => t.estado !== "finalizado");
+  const finalizados = trabajos.filter((t) => t.estado === "finalizado");
+  const atrasados = activos.filter(estaAtrasado).length;
   return (
     <>
       <TopBar eyebrow="Cola comercial · Cola de producción" title="Trabajos" />
       <div className="taller-content">
         <div className="list-summary">
-          <span className="count"><b>{trabajos.length}</b> trabajos activos</span>
+          <span className="count"><b>{activos.length}</b> trabajos activos</span>
           {atrasados > 0 && <span className="count" style={{ color: "var(--danger)" }}>{atrasados} fuera de fecha</span>}
         </div>
-        {trabajos.map((t) => <TrabajoCard key={t.id} trabajo={t} clientes={clientes} movimientos={movimientos} onOpen={onOpen} />)}
+        {activos.length === 0 && <p style={{ color: "var(--text-muted)", fontSize: 13 }}>No tenés trabajos activos.</p>}
+        {activos.map((t) => <TrabajoCard key={t.id} trabajo={t} clientes={clientes} movimientos={movimientos} onOpen={onOpen} />)}
+
+        {finalizados.length > 0 && (
+          <>
+            <div className="section-title">Finalizados ({finalizados.length})</div>
+            {finalizados.map((t) => <TrabajoCard key={t.id} trabajo={t} clientes={clientes} movimientos={movimientos} onOpen={onOpen} />)}
+          </>
+        )}
       </div>
       <button className="fab" onClick={onNew} aria-label="Nuevo trabajo"><Plus size={24} /></button>
     </>
@@ -907,12 +924,8 @@ function cuentaAfectada(data) {
 }
 const NOMBRE_CUENTA = { negocio: "Negocio", personal: "Personal", reserva: "Reserva" };
 
-function MovimientoForm({ categorias, balances, onSave, onCancel, movimientoEditando }) {
-  const [data, setData] = useState(
-    movimientoEditando
-      ? { tipo: movimientoEditando.tipo, cuenta: movimientoEditando.cuenta || "negocio", monto: String(movimientoEditando.monto), categoria: movimientoEditando.categoria || "", fecha: movimientoEditando.fecha, descripcion: movimientoEditando.descripcion || "" }
-      : { tipo: "ingreso", cuenta: "negocio", monto: "", categoria: "", fecha: "", descripcion: "" }
-  );
+function MovimientoForm({ categorias, balances, onSave, onCancel }) {
+  const [data, setData] = useState({ tipo: "ingreso", cuenta: "negocio", monto: "", categoria: "", fecha: "", descripcion: "" });
   const [errores, setErrores] = useState({});
   function set(campo, valor) { setData((prev) => ({ ...prev, [campo]: valor })); }
   function handleSubmit(e) {
@@ -930,7 +943,7 @@ function MovimientoForm({ categorias, balances, onSave, onCancel, movimientoEdit
 
   return (
     <>
-      <TopBar eyebrow="Finanzas" title={movimientoEditando ? "Editar movimiento" : "Nuevo movimiento"} onBack={onCancel} />
+      <TopBar eyebrow="Finanzas" title="Nuevo movimiento" onBack={onCancel} />
       <div className="taller-content">
         <form onSubmit={handleSubmit} noValidate>
           <FormField label="Tipo" required error={errores.tipo}>
@@ -973,7 +986,7 @@ function MovimientoForm({ categorias, balances, onSave, onCancel, movimientoEdit
           </FormField>
           <div className="form-actions">
             <button type="button" className="cancel-btn" onClick={onCancel}>Cancelar</button>
-            <button type="submit" className="save-btn">{movimientoEditando ? "Guardar cambios" : "Registrar"}</button>
+            <button type="submit" className="save-btn">Registrar</button>
           </div>
         </form>
       </div>
@@ -981,7 +994,53 @@ function MovimientoForm({ categorias, balances, onSave, onCancel, movimientoEdit
   );
 }
 
-function MovimientoRow({ movimiento, onDelete, onEdit }) {
+function GraficoMensual({ grupos }) {
+  const ultimos = [...grupos].slice(0, 6).reverse();
+  if (ultimos.length === 0) return null;
+  const maxValor = Math.max(1, ...ultimos.flatMap((g) => [g.ingresos, g.gastos]));
+  return (
+    <div className="simple-card" style={{ cursor: "default" }}>
+      <div style={{ display: "flex", gap: 14, marginBottom: 12, fontSize: 11, color: "var(--text-muted)" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--success)", display: "inline-block" }} /> Ingresos</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--danger)", display: "inline-block" }} /> Gastos</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+        {ultimos.map((g) => (
+          <div key={g.clave} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 90 }}>
+              <div style={{ width: 10, borderRadius: "3px 3px 0 0", background: "var(--success)", height: `${Math.max(2, (g.ingresos / maxValor) * 90)}px` }} />
+              <div style={{ width: 10, borderRadius: "3px 3px 0 0", background: "var(--danger)", height: `${Math.max(2, (g.gastos / maxValor) * 90)}px` }} />
+            </div>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "var(--text-muted)" }}>{formatMes(g.clave).slice(0, 3)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TopCategoriasGasto({ movimientos }) {
+  const top = topCategoriasGasto(movimientos, 5);
+  if (top.length === 0) return null;
+  const maxValor = top[0][1];
+  return (
+    <div className="simple-card" style={{ cursor: "default" }}>
+      {top.map(([nombre, monto]) => (
+        <div key={nombre} style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 5 }}>
+            <span>{nombre}</span>
+            <span style={{ fontFamily: "var(--font-mono)" }}>{formatMonto(monto)}</span>
+          </div>
+          <div style={{ height: 6, background: "var(--border)", borderRadius: 6, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${(monto / maxValor) * 100}%`, background: "var(--danger)" }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MovimientoRow({ movimiento, onDelete }) {
   const meta = TIPO_MOVIMIENTO_META[movimiento.tipo];
   const Icon = meta.icon;
   const esNegativoParaNegocio = movimiento.tipo !== "ingreso";
@@ -1005,16 +1064,9 @@ function MovimientoRow({ movimiento, onDelete, onEdit }) {
       <div className="card-meta-row">
         <div className="meta-item"><Calendar size={12} /> {formatFecha(movimiento.fecha)}</div>
         <button
-          onClick={() => onEdit(movimiento)}
-          aria-label="Editar movimiento"
-          style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center" }}
-        >
-          <Pencil size={14} />
-        </button>
-        <button
           onClick={handleDelete}
           aria-label="Eliminar movimiento"
-          style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", display: "flex", alignItems: "center" }}
+          style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--danger)", cursor: "pointer", display: "flex", alignItems: "center" }}
         >
           <Trash2 size={14} />
         </button>
@@ -1023,47 +1075,29 @@ function MovimientoRow({ movimiento, onDelete, onEdit }) {
   );
 }
 
-function FinanzasScreen({ movimientos, crearMovimiento, actualizarMovimiento, eliminarMovimiento, vaciarMovimientos, categorias, metaReserva }) {
+function FinanzasScreen({ movimientos, crearMovimiento, eliminarMovimiento, vaciarMovimientos, categorias, metaReserva }) {
   const [mostrandoForm, setMostrandoForm] = useState(false);
-  const [movimientoEditando, setMovimientoEditando] = useState(null);
-  const [indiceMes, setIndiceMes] = useState(0);
   const balances = computeBalances(movimientos);
   const gruposPorMes = agruparPorMes(movimientos);
-  const indiceMesSeguro = Math.min(indiceMes, Math.max(0, gruposPorMes.length - 1));
-  const mesMostrado = gruposPorMes[indiceMesSeguro];
+  const mesActual = gruposPorMes[0]; // el más reciente, si existe
 
   const totalIngresos = movimientos.filter((m) => m.tipo === "ingreso").reduce((acc, m) => acc + m.monto, 0);
   const metaAcumulada = totalIngresos * (metaReserva / 100);
   const faltanteReserva = Math.max(0, Math.round(metaAcumulada - balances.reserva));
   const progresoReserva = metaAcumulada > 0 ? Math.min(100, Math.round((balances.reserva / metaAcumulada) * 100)) : 100;
 
-  function cerrarForm() {
-    setMostrandoForm(false);
-    setMovimientoEditando(null);
-  }
-
   if (mostrandoForm) {
     return (
       <MovimientoForm
         categorias={categorias}
         balances={balances}
-        movimientoEditando={movimientoEditando}
-        onCancel={cerrarForm}
+        onCancel={() => setMostrandoForm(false)}
         onSave={async (data) => {
-          if (movimientoEditando) {
-            await actualizarMovimiento(movimientoEditando.id, data);
-          } else {
-            await crearMovimiento(data);
-          }
-          cerrarForm();
+          await crearMovimiento(data);
+          setMostrandoForm(false);
         }}
       />
     );
-  }
-
-  function handleEditMovimiento(movimiento) {
-    setMovimientoEditando(movimiento);
-    setMostrandoForm(true);
   }
 
   async function handleDeleteMovimiento(id) {
@@ -1109,33 +1143,25 @@ function FinanzasScreen({ movimientos, crearMovimiento, actualizarMovimiento, el
           )}
         </div>
 
-        {mesMostrado && (
+        {mesActual && (
           <>
-            <div className="section-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <button
-                onClick={() => setIndiceMes(indiceMesSeguro + 1)}
-                disabled={indiceMesSeguro >= gruposPorMes.length - 1}
-                aria-label="Mes anterior"
-                style={{ background: "none", border: "none", cursor: indiceMesSeguro >= gruposPorMes.length - 1 ? "default" : "pointer", opacity: indiceMesSeguro >= gruposPorMes.length - 1 ? 0.3 : 1, color: "var(--text)", display: "flex", alignItems: "center", padding: 4 }}
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span>{formatMes(mesMostrado.clave)}</span>
-              <button
-                onClick={() => setIndiceMes(indiceMesSeguro - 1)}
-                disabled={indiceMesSeguro <= 0}
-                aria-label="Mes siguiente"
-                style={{ background: "none", border: "none", cursor: indiceMesSeguro <= 0 ? "default" : "pointer", opacity: indiceMesSeguro <= 0 ? 0.3 : 1, color: "var(--text)", display: "flex", alignItems: "center", padding: 4 }}
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
+            <div className="section-title">{formatMes(mesActual.clave)} (mes más reciente)</div>
             <div className="accounts-row">
-              <div className="account-card"><div className="label">Ingresos</div><div className="value" style={{ color: "var(--success)" }}>{formatMonto(mesMostrado.ingresos)}</div></div>
-              <div className="account-card"><div className="label">Gastos</div><div className="value" style={{ color: "var(--danger)" }}>{formatMonto(mesMostrado.gastos)}</div></div>
-              <div className="account-card"><div className="label">Balance</div><div className="value">{formatMonto(mesMostrado.ingresos - mesMostrado.gastos)}</div></div>
+              <div className="account-card"><div className="label">Ingresos</div><div className="value" style={{ color: "var(--success)" }}>{formatMonto(mesActual.ingresos)}</div></div>
+              <div className="account-card"><div className="label">Gastos</div><div className="value" style={{ color: "var(--danger)" }}>{formatMonto(mesActual.gastos)}</div></div>
+              <div className="account-card"><div className="label">Balance</div><div className="value">{formatMonto(mesActual.ingresos - mesActual.gastos)}</div></div>
             </div>
           </>
+        )}
+
+        <div className="section-title">Ingresos vs. gastos (últimos meses)</div>
+        <GraficoMensual grupos={gruposPorMes} />
+
+        <div className="section-title">En qué gastás más</div>
+        {topCategoriasGasto(movimientos).length === 0 ? (
+          <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Todavía no hay gastos registrados.</p>
+        ) : (
+          <TopCategoriasGasto movimientos={movimientos} />
         )}
 
         <div className="section-title">Movimientos</div>
@@ -1150,7 +1176,7 @@ function FinanzasScreen({ movimientos, crearMovimiento, actualizarMovimiento, el
                 <span style={{ color: "var(--danger)" }}>-{formatMonto(grupo.gastos)}</span>
               </span>
             </div>
-            {grupo.movimientos.map((m) => <MovimientoRow key={m.id} movimiento={m} onDelete={handleDeleteMovimiento} onEdit={handleEditMovimiento} />)}
+            {grupo.movimientos.map((m) => <MovimientoRow key={m.id} movimiento={m} onDelete={handleDeleteMovimiento} />)}
           </div>
         ))}
         {movimientos.length > 0 && (
@@ -1322,7 +1348,6 @@ export default function TallerApp() {
       <FinanzasScreen
         movimientos={movimientosTabla.data}
         crearMovimiento={movimientosTabla.crear}
-        actualizarMovimiento={movimientosTabla.actualizar}
         eliminarMovimiento={movimientosTabla.eliminar}
         vaciarMovimientos={movimientosTabla.vaciar}
         categorias={categoriasTabla.data}
