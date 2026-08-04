@@ -20,6 +20,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Repeat,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 /* ============================================================
@@ -152,10 +154,10 @@ const THEME = `
   }
 
   .fab {
-    position: absolute; right: 18px; bottom: 86px; width: 52px; height: 52px; border-radius: 16px;
+    position: fixed; right: max(18px, calc((100vw - 480px) / 2 + 18px)); bottom: 86px; width: 52px; height: 52px; border-radius: 16px;
     background: var(--accent); color: #1c1815; border: none;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 8px 20px rgba(201, 125, 63, 0.35); cursor: pointer; z-index: 5;
+    box-shadow: 0 8px 20px rgba(201, 125, 63, 0.35); cursor: pointer; z-index: 9;
   }
 
   .detail-status-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
@@ -208,9 +210,9 @@ const THEME = `
 
   /* ---- Bottom nav ---- */
   .taller-bottomnav {
-    position: absolute; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
+    position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
     display: flex; border-top: 1px solid var(--border); background: rgba(28, 24, 21, 0.96);
-    backdrop-filter: blur(6px); padding: 8px 6px calc(10px + env(safe-area-inset-bottom, 0px)) 6px; z-index: 4;
+    backdrop-filter: blur(6px); padding: 8px 6px calc(10px + env(safe-area-inset-bottom, 0px)) 6px; z-index: 10;
   }
   .nav-item {
     flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 6px 2px;
@@ -1052,9 +1054,15 @@ function MovimientoRow({ movimiento, onDelete }) {
 
 function FinanzasScreen({ movimientos, crearMovimiento, eliminarMovimiento, vaciarMovimientos, categorias, metaReserva }) {
   const [mostrandoForm, setMostrandoForm] = useState(false);
+  const [mesSeleccionado, setMesSeleccionado] = useState(null); // null = el más reciente
   const balances = computeBalances(movimientos);
   const gruposPorMes = agruparPorMes(movimientos);
-  const mesActual = gruposPorMes[0]; // el más reciente, si existe
+  const idxActual = mesSeleccionado ? gruposPorMes.findIndex((g) => g.clave === mesSeleccionado) : 0;
+  const mesActual = gruposPorMes[idxActual] || null;
+  const hayMesAnterior = idxActual >= 0 && idxActual < gruposPorMes.length - 1;
+  const hayMesSiguiente = idxActual > 0;
+  function irMesAnterior() { if (hayMesAnterior) setMesSeleccionado(gruposPorMes[idxActual + 1].clave); }
+  function irMesSiguiente() { if (hayMesSiguiente) setMesSeleccionado(gruposPorMes[idxActual - 1].clave); }
 
   const totalIngresos = movimientos.filter((m) => m.tipo === "ingreso").reduce((acc, m) => acc + m.monto, 0);
   const metaAcumulada = totalIngresos * (metaReserva / 100);
@@ -1120,7 +1128,27 @@ function FinanzasScreen({ movimientos, crearMovimiento, eliminarMovimiento, vaci
 
         {mesActual && (
           <>
-            <div className="section-title">{formatMes(mesActual.clave)} (mes más reciente)</div>
+            <div className="section-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span>{formatMes(mesActual.clave)}</span>
+              <span style={{ display: "flex", gap: 4 }}>
+                <button
+                  onClick={irMesAnterior}
+                  disabled={!hayMesAnterior}
+                  aria-label="Mes anterior"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 7, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", color: hayMesAnterior ? "var(--text)" : "var(--border)", cursor: hayMesAnterior ? "pointer" : "default" }}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <button
+                  onClick={irMesSiguiente}
+                  disabled={!hayMesSiguiente}
+                  aria-label="Mes siguiente"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 7, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", color: hayMesSiguiente ? "var(--text)" : "var(--border)", cursor: hayMesSiguiente ? "pointer" : "default" }}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </span>
+            </div>
             <div className="accounts-row">
               <div className="account-card"><div className="label">Ingresos</div><div className="value" style={{ color: "var(--success)" }}>{formatMonto(mesActual.ingresos)}</div></div>
               <div className="account-card"><div className="label">Gastos</div><div className="value" style={{ color: "var(--danger)" }}>{formatMonto(mesActual.gastos)}</div></div>
